@@ -1,0 +1,52 @@
+image:
+  repository: ghcr.io/sre-agent/agent
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  host: agent.example.com
+
+config:
+  appEnv: prod
+  logLevel: INFO
+  targetNamespace: demo-store
+  k8sInCluster: "true"
+  openrouterModel: anthropic/claude-3.5-sonnet
+  embeddingsModel: sentence-transformers/all-MiniLM-L6-v2
+  embeddingsDim: 384
+  qdrantUrl: http://qdrant:6333
+  qdrantCollection: sre_knowledge
+  prometheusUrl: http://prometheus-server:80
+  lokiUrl: http://loki:3100
+  hilPrimaryTimeoutSeconds: 300
+  hilSecondaryTimeoutSeconds: 180
+  hilCommanderTimeoutSeconds: 120
+
+secrets:
+  # Wire these via SealedSecret or external-secrets controller in production.
+  openrouterApiKey: ""
+  microsoftAppId: ""
+  microsoftAppPassword: ""
+  microsoftAppTenantId: ""
+  postgresDsn: "postgresql+asyncpg://sre:sre@postgres:5432/sre_agent"
+
+serviceAccount:
+  create: true
+  name: sre-agent

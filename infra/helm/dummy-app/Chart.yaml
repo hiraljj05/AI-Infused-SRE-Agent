@@ -1,0 +1,6 @@
+apiVersion: v2
+name: dummy-app
+description: 4-service demo workload (web-frontend, orders-api, payments-api, load-generator)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,13 @@
+config:
+  clients:
+    - url: http://loki.platform.svc.cluster.local:3100/loki/api/v1/push
+  snippets:
+    pipelineStages:
+      - cri: {}
+resources:
+  requests: { cpu: 25m, memory: 50Mi }
+  limits: { cpu: 100m, memory: 100Mi }
+tolerations:
+  - operator: Exists
+serviceMonitor:
+  enabled: false

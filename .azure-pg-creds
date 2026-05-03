@@ -1,0 +1,7 @@
+host=sre-agent-pg.postgres.database.azure.com
+port=5432
+db=sre_agent
+admin_user=sre
+admin_pass=1U5jPc!17@iR8JoD+1DMIV@96wta
+my_ip=49.205.248.80
+provisioned_at=2026-04-24T01:02:18.4301464+05:30

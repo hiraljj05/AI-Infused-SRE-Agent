@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sre-agent
+description: Deployment of the SRE Agent (FastAPI + LangGraph) with Postgres and Qdrant dependencies
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

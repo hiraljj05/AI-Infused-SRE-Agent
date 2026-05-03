@@ -1,0 +1,279 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sre-agent
+  namespace: sre-agent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sre-agent-demo-ops
+  namespace: demo
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "events", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log", "pods/exec"]
+    verbs: ["get", "list", "create"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sre-agent-demo-ops
+  namespace: demo
+subjects:
+  - kind: ServiceAccount
+    name: sre-agent
+    namespace: sre-agent
+roleRef:
+  kind: Role
+  name: sre-agent-demo-ops
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sre-agent-cluster-read
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "namespaces", "pods", "services", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sre-agent-cluster-read
+subjects:
+  - kind: ServiceAccount
+    name: sre-agent
+    namespace: sre-agent
+roleRef:
+  kind: ClusterRole
+  name: sre-agent-cluster-read
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agent-data
+  namespace: sre-agent
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: managed-csi
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent
+  namespace: sre-agent
+  labels:
+    app: agent
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: agent
+  template:
+    metadata:
+      labels:
+        app: agent
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: sre-agent
+      nodeSelector:
+        workload: apps
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: apps
+          effect: NoSchedule
+      initContainers:
+        - name: data-perms
+          image: busybox:1.36
+          command: ["sh", "-c", "mkdir -p /app/data && chown 1000:1000 /app/data && chmod 0775 /app/data"]
+          volumeMounts:
+            - name: agent-data
+              mountPath: /app/data
+      volumes:
+        - name: agent-data
+          persistentVolumeClaim:
+            claimName: agent-data
+      containers:
+        - name: agent
+          image: sreagentacr13668.azurecr.io/agent:v2
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: PROMETHEUS_URL
+              value: http://prometheus-server.platform.svc.cluster.local
+            - name: LOKI_URL
+              value: http://loki.platform.svc.cluster.local:3100
+            - name: QDRANT_URL
+              value: http://qdrant.platform.svc.cluster.local:6333
+            - name: GRAFANA_URL
+              value: http://grafana.platform.svc.cluster.local
+            - name: K8S_IN_CLUSTER
+              value: "true"
+            - name: TARGET_NAMESPACE
+              value: demo
+            - name: APP_ENV
+              value: prod
+            - name: LOG_LEVEL
+              value: INFO
+            - name: HTTP_PORT
+              value: "8000"
+            - name: AAD_REDIRECT_URI
+              value: http://localhost:8000/auth/callback
+            - name: AAD_POST_LOGIN_REDIRECT
+              value: http://localhost:3000/
+            - name: KNOWLEDGE_BASE_ROOT
+              value: /app/knowledge_base
+          envFrom:
+            - secretRef:
+                name: sre-agent-secrets
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8000 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8000 }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 100m, memory: 350Mi }
+            limits: { cpu: 800m, memory: 700Mi }
+          volumeMounts:
+            - name: agent-data
+              mountPath: /app/data
+          command: ["uvicorn"]
+          args:
+            - "sre_agent.interface.rest.app:app"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent
+  namespace: sre-agent
+spec:
+  selector: { app: agent }
+  ports:
+    - port: 8000
+      targetPort: http
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  namespace: sre-agent
+  labels:
+    app: dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashboard
+  template:
+    metadata:
+      labels:
+        app: dashboard
+    spec:
+      containers:
+        - name: dashboard
+          image: sreagentacr13668.azurecr.io/dashboard:v1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              value: http://localhost:8000
+            - name: AGENT_API_URL
+              value: http://agent.sre-agent.svc.cluster.local:8000
+          resources:
+            requests: { cpu: 50m, memory: 200Mi }
+            limits: { cpu: 300m, memory: 400Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard
+  namespace: sre-agent
+spec:
+  selector: { app: dashboard }
+  ports:
+    - port: 3000
+      targetPort: http
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chaos-ui
+  namespace: sre-agent
+  labels:
+    app: chaos-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chaos-ui
+  template:
+    metadata:
+      labels:
+        app: chaos-ui
+    spec:
+      containers:
+        - name: chaos-ui
+          image: sreagentacr13668.azurecr.io/chaos-ui:v2
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8501
+              name: http
+          env:
+            - name: AGENT_API_URL
+              value: http://agent.sre-agent.svc.cluster.local:8000
+            - name: TARGET_NAMESPACE
+              value: demo
+          resources:
+            requests: { cpu: 50m, memory: 100Mi }
+            limits: { cpu: 200m, memory: 200Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chaos-ui
+  namespace: sre-agent
+spec:
+  selector: { app: chaos-ui }
+  ports:
+    - port: 8501
+      targetPort: http
+      name: http

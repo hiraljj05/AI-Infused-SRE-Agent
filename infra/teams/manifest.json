@@ -1,0 +1,48 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "fe0433aa-2f41-4060-a2ed-0819e9c37bc1",
+  "packageName": "com.sre.agent",
+  "developer": {
+    "name": "SRE Agent",
+    "websiteUrl": "https://example.com/sre-agent",
+    "privacyUrl": "https://example.com/privacy",
+    "termsOfUseUrl": "https://example.com/terms"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "SRE Agent",
+    "full": "SRE Agent — Incident Response Bot"
+  },
+  "description": {
+    "short": "AI SRE bot. Detects, diagnoses, and fixes incidents. Pings on HIL approvals.",
+    "full": "I'm your SRE Agent. I monitor production services 24/7. When an incident fires I detect it, gather evidence (metrics + logs + recent deploys), generate a root cause hypothesis, and propose a fix. For low-blast-radius fixes I act autonomously; for higher-blast actions I ping you here with an approval card. Ask me 'what is broken?', 'who is on call for X?', or 'show recent incidents on payments-api'. If I can't fix something with confidence I escalate up the on-call chain."
+  },
+  "accentColor": "#4f46e5",
+  "bots": [
+    {
+      "botId": "fe0433aa-2f41-4060-a2ed-0819e9c37bc1",
+      "scopes": ["personal", "team", "groupchat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team"],
+          "commands": [
+            { "title": "what is broken?", "description": "List currently active incidents" },
+            { "title": "who is on call?", "description": "Look up on-call owner for a service" },
+            { "title": "recent incidents on X", "description": "Recent incident history for a service" },
+            { "title": "runbook for OOM crashes", "description": "Search the runbook knowledge base" },
+            { "title": "summarize INC-XXXX", "description": "RCA + actions taken for an incident" }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["*.ngrok-free.dev", "*.ngrok-free.app", "*.ngrok.io", "*.devtunnels.ms"]
+}

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="55%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fef3c7"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="192" height="192" rx="40" fill="url(#bg)"/>
+  <circle cx="96" cy="96" r="84" fill="url(#halo)"/>
+
+  <!-- Outer ring (signal pulse) -->
+  <circle cx="96" cy="96" r="74" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
+  <circle cx="96" cy="96" r="58" fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2"/>
+
+  <!-- Lightning bolt (auto-fix energy) -->
+  <path d="M 102 38 L 70 102 L 92 102 L 84 154 L 124 86 L 100 86 Z"
+        fill="url(#bolt)"
+        stroke="#fffbeb"
+        stroke-width="3"
+        stroke-linejoin="round"/>
+
+  <!-- Tiny status dot bottom right (live) -->
+  <circle cx="148" cy="148" r="11" fill="#10b981" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="148" cy="148" r="3.5" fill="#ffffff"/>
+</svg>

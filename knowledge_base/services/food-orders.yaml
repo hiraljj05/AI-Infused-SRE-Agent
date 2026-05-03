@@ -1,0 +1,18 @@
+name: food-orders
+tier: tier-1
+namespace: demo
+owner_primary: demo@.onmicrosoft.com
+owner_secondary: PriyanshTyagi@sreagentusecase.onmicrosoft.com
+incident_commander_group: PriyanshTyagi@sreagentusecase.onmicrosoft.com
+dependencies: []
+slos:
+  - metric: http_requests_total:error_rate
+    target_percent: 99.5
+    window_days: 30
+  - metric: http_request_duration_seconds:p99
+    target_percent: 99.0
+    window_days: 30
+runbook_ids:
+  - RB-ORDERS-5XX
+  - RB-OOMKILL
+  - RB-PAYMENTS-503

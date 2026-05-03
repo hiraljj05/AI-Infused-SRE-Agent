@@ -1,0 +1,6 @@
+apiVersion: v2
+name: chaos-ui
+description: Streamlit UI for on-demand chaos injection against the demo workload
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

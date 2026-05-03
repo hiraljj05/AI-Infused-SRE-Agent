@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(docker compose *)",
+      "Bash(curl -s -o /dev/null -w \"dashboard: %{http_code}\\\\n\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"chaos-ui: %{http_code}\\\\n\" http://localhost:8501)",
+      "Bash(lsof -nP -iTCP:3000 -sTCP:LISTEN)",
+      "Bash(curl -s -o /dev/null -w \"dashboard on 3030: %{http_code}\\\\n\" http://localhost:3030)",
+      "Bash(curl -s -X POST http://localhost:8000/chat -H 'Content-Type: application/json' -d '{\"question\":\"what is broken right now?\"}' -w \"\\\\n---STATUS: %{http_code}---\\\\n\")",
+      "Bash(az provider *)",
+      "Bash(curl -s -o /tmp/chat_resp.txt -w \"status=%{http_code} time=%{time_total}s\\\\n\" -X POST http://localhost:8000/chat -H 'Content-Type: application/json' -d '{\"question\":\"what is broken right now?\"}')",
+      "Read(//tmp/**)",
+      "Bash(docker exec *)",
+      "Bash(curl -s -X POST http://localhost:3030/api/agent/chat -H 'Content-Type: application/json' -d '{\"question\":\"what is broken right now?\"}' -w \"\\\\n---STATUS: %{http_code}---\\\\n\")"
+    ]
+  }
+}

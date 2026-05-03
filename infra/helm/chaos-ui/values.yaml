@@ -1,0 +1,8 @@
+image:
+  repository: ghcr.io/sre-agent/chaos-ui
+  tag: latest
+agentApiUrl: http://sre-agent:8000
+targetNamespace: demo-store
+serviceAccount:
+  create: true
+  name: chaos-ui

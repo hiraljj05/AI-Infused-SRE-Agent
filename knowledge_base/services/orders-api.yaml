@@ -1,0 +1,17 @@
+name: orders-api
+tier: tier-1
+namespace: demo-store
+owner_primary: demo@.onmicrosoft.com
+owner_secondary: PriyanshTyagi@sreagentusecase.onmicrosoft.com
+incident_commander_group: PriyanshTyagi@sreagentusecase.onmicrosoft.com
+dependencies:
+  - payments-api
+  - inventory-db
+slos:
+  - metric: http_requests_total:error_rate
+    target_percent: 99.5
+    window_days: 30
+runbook_ids:
+  - RB-ORDERS-5XX
+  - RB-POD-CRASHLOOP
+  - RB-OOMKILL

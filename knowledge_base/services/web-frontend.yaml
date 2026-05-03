@@ -1,0 +1,15 @@
+name: web-frontend
+tier: tier-1
+namespace: demo-store
+owner_primary: demo@.onmicrosoft.com
+owner_secondary: PriyanshTyagi@sreagentusecase.onmicrosoft.com
+incident_commander_group: PriyanshTyagi@sreagentusecase.onmicrosoft.com
+dependencies:
+  - orders-api
+slos:
+  - metric: http_request_duration_seconds:p99
+    target_percent: 95.0
+    window_days: 30
+runbook_ids:
+  - RB-FRONTEND-CPU
+  - RB-POD-CRASHLOOP

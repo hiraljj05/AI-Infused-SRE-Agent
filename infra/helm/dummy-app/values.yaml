@@ -1,0 +1,43 @@
+imageRegistry: ghcr.io/sre-agent
+imageTag: latest
+
+services:
+  web-frontend:
+    replicas: 1
+    port: 8080
+    env:
+      - name: ORDERS_URL
+        value: http://orders-api:8080
+    resources:
+      limits: { cpu: 200m, memory: 128Mi }
+      requests: { cpu: 50m, memory: 64Mi }
+  orders-api:
+    replicas: 1
+    port: 8080
+    env:
+      - name: PAYMENTS_URL
+        value: http://payments-api:8080
+    resources:
+      limits: { cpu: 200m, memory: 128Mi }
+      requests: { cpu: 50m, memory: 64Mi }
+  payments-api:
+    replicas: 2
+    port: 8080
+    env: []
+    resources:
+      limits: { cpu: 200m, memory: 128Mi }
+      requests: { cpu: 50m, memory: 64Mi }
+
+loadGenerator:
+  enabled: true
+  replicas: 1
+  env:
+    - name: TARGET_URL
+      value: http://web-frontend:8080/checkout
+    - name: RATE_RPS
+      value: "3"
+    - name: USERS
+      value: "50"
+  resources:
+    limits: { cpu: 100m, memory: 64Mi }
+    requests: { cpu: 25m, memory: 32Mi }

@@ -1,0 +1,16 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: cpu-stress-web-frontend
+  namespace: demo-store
+spec:
+  mode: all
+  selector:
+    namespaces: [demo-store]
+    labelSelectors:
+      app: web-frontend
+  stressors:
+    cpu:
+      workers: 2
+      load: 80
+  duration: "2m"

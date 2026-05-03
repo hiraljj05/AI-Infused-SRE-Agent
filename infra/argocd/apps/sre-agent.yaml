@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sre-agent
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/REPLACE_ORG/REPLACE_REPO.git
+    targetRevision: main
+    path: infra/helm/sre-agent
+    helm:
+      releaseName: sre-agent
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sre-agent
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: ["CreateNamespace=true"]

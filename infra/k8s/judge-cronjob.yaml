@@ -1,0 +1,172 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: judge-script
+  namespace: sre-agent
+data:
+  judge.py: |
+    """Synthetic regression test for the SRE agent.
+    Triggers REAL chaos via the agent's k8s-chaos endpoints and asserts the
+    resulting incident has REAL evidence — not a phantom signal.
+    """
+    from __future__ import annotations
+    import json
+    import os
+    import sys
+    import time
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+    from datetime import datetime, timezone
+
+    AGENT = os.environ.get("AGENT_URL", "http://agent.sre-agent.svc.cluster.local:8000")
+    SVC = os.environ.get("TEST_SERVICE", "food-orders")
+    NS = os.environ.get("TARGET_NAMESPACE", "demo")
+
+    def call(method: str, path: str, params: dict | None = None, body: dict | None = None, timeout: float = 30.0):
+        url = f"{AGENT}{path}"
+        if params:
+            url += "?" + urllib.parse.urlencode(params)
+        data = None
+        headers = {}
+        if body is not None:
+            data = json.dumps(body).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+        elif method in ("POST", "PUT", "PATCH"):
+            data = b"{}"
+            headers["Content-Type"] = "application/json"
+        req = urllib.request.Request(url, data=data, method=method, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                resp = r.read().decode("utf-8")
+                return r.status, resp
+        except urllib.error.HTTPError as e:
+            return e.code, e.read().decode("utf-8", "ignore")
+
+    def jcall(method: str, path: str, params: dict | None = None):
+        code, body = call(method, path, params)
+        if code >= 400:
+            raise RuntimeError(f"{method} {path} -> {code}: {body[:300]}")
+        return json.loads(body)
+
+    def now():
+        return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    def main() -> int:
+        print(f"[{now()}] Judge starting against {SVC} in {NS}")
+
+        # Clean slate: resolve every open incident so the next signal opens a
+        # fresh one (agent dedupes per service).
+        try:
+            jcall("POST", "/incidents/_admin/resolve-all")
+            print("clean-slate: all incidents resolved")
+        except Exception as e:  # noqa: BLE001
+            print(f"  warn resolve-all: {e}")
+        time.sleep(2)
+
+        before = jcall("GET", "/incidents")
+        n_before = len(before) if isinstance(before, list) else len(before.get("items", []))
+        print(f"incidents before: {n_before}")
+
+        chaos = jcall("POST", "/api/k8s-chaos/oom", {"service": SVC})
+        print(f"chaos response: {json.dumps(chaos)[:300]}")
+
+        new_inc = None
+        for attempt in range(30):
+            time.sleep(3)
+            after = jcall("GET", "/incidents")
+            items = after if isinstance(after, list) else after.get("items", [])
+            if len(items) > n_before:
+                new_inc = items[0].get("id")
+                print(f"new incident: {new_inc} (attempt {attempt + 1})")
+                break
+
+        if not new_inc:
+            print(f"[{now()}] FAIL: no incident opened within 90s of real chaos")
+            try:
+                jcall("POST", "/api/k8s-chaos/restore", {"service": SVC})
+            except Exception:  # noqa: BLE001
+                pass
+            return 1
+
+        # Pipeline runs detect → triage → memory_lookup → fan_out → gather (real
+        # kubectl + Loki + Prom calls) → diagnose (LLM) → propose → notify_hil.
+        # Allow up to 3 min for the agent to reach gather/diagnose; assert on
+        # what real-evidence-bearing nodes have actually run.
+        types: set[str] = set()
+        required = {"IncidentDetected", "IncidentTriaged", "EvidenceGathered"}
+        for attempt in range(36):
+            time.sleep(5)
+            evidence = jcall("GET", "/api/events", {"limit": 100, "incident_id": new_inc})
+            items = evidence if isinstance(evidence, list) else evidence.get("items", [])
+            types = {(e.get("type") or e.get("event_type") or "") for e in items}
+            if required.issubset(types):
+                break
+        print(f"event types observed: {sorted(types)}")
+
+        missing = required - types
+        if missing:
+            print(f"[{now()}] FAIL: incident {new_inc} missing event types {missing} after 3min")
+            try:
+                jcall("POST", "/api/k8s-chaos/restore", {"service": SVC})
+                jcall("POST", f"/api/incidents/{new_inc}/close")
+            except Exception:  # noqa: BLE001
+                pass
+            return 1
+
+        try:
+            jcall("POST", "/api/k8s-chaos/restore", {"service": SVC})
+        except Exception as e:  # noqa: BLE001
+            print(f"warning: restore failed: {e}")
+        try:
+            jcall("POST", f"/api/incidents/{new_inc}/close")
+        except Exception as e:  # noqa: BLE001
+            print(f"warning: close failed: {e}")
+
+        print(f"[{now()}] Judge PASS: incident={new_inc}, types={sorted(set(types))}")
+        return 0
+
+    sys.exit(main())
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: judge
+  namespace: sre-agent
+  labels:
+    app: judge
+spec:
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 10
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app: judge
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: judge
+              image: python:3.12-slim
+              command: ["python3", "/scripts/judge.py"]
+              env:
+                - name: TEST_SERVICE
+                  value: food-orders
+                - name: TARGET_NAMESPACE
+                  value: demo
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+              resources:
+                requests: { cpu: 50m, memory: 64Mi }
+                limits: { cpu: 200m, memory: 128Mi }
+          volumes:
+            - name: script
+              configMap:
+                name: judge-script
+                defaultMode: 0755

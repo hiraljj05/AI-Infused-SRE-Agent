@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  agent-lint-test:
+    name: Agent - lint, type-check, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/agent
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sre
+          POSTGRES_PASSWORD: sre
+          POSTGRES_DB: sre_agent_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sre"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      qdrant:
+        image: qdrant/qdrant:v1.12.1
+        ports: ["6333:6333"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check src tests
+
+      - name: Ruff format
+        run: ruff format --check src tests
+
+      - name: mypy
+        run: mypy src
+
+      - name: import-linter (hexagonal boundary)
+        run: python -m lint_imports --config=.importlinter
+
+      - name: Unit tests
+        run: pytest tests/unit -v --cov=src/sre_agent/domain --cov=src/sre_agent/application --cov-report=xml
+
+      - name: Integration tests
+        env:
+          POSTGRES_DSN: postgresql+asyncpg://sre:sre@localhost:5432/sre_agent_test
+          QDRANT_URL: http://localhost:6333
+        run: pytest tests/integration -v
+
+      - uses: codecov/codecov-action@v4
+        with:
+          files: ./services/agent/coverage.xml
+          fail_ci_if_error: false
+
+  agent-build:
+    name: Agent - docker build
+    runs-on: ubuntu-latest
+    needs: agent-lint-test
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        if: github.event_name == 'push'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}/agent
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: services/agent
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  dashboard-lint-build:
+    name: Dashboard - lint, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: services/dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  helm-lint:
+    name: Helm charts - lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: |
+          for chart in infra/helm/*/; do
+            echo "Linting $chart"
+            helm lint "$chart"
+          done
+
+  bicep-lint:
+    name: Bicep - lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: az bicep build --file infra/bicep/main.bicep

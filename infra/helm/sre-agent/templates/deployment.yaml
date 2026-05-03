@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: sre-agent
+    app.kubernetes.io/name: sre-agent
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: sre-agent
+  template:
+    metadata:
+      labels:
+        app: sre-agent
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sre-agent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: APP_ENV
+              value: "{{ .Values.config.appEnv }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.config.logLevel }}"
+            - name: TARGET_NAMESPACE
+              value: "{{ .Values.config.targetNamespace }}"
+            - name: K8S_IN_CLUSTER
+              value: "{{ .Values.config.k8sInCluster }}"
+            - name: OPENROUTER_MODEL
+              value: "{{ .Values.config.openrouterModel }}"
+            - name: EMBEDDINGS_MODEL
+              value: "{{ .Values.config.embeddingsModel }}"
+            - name: EMBEDDINGS_DIM
+              value: "{{ .Values.config.embeddingsDim }}"
+            - name: QDRANT_URL
+              value: "{{ .Values.config.qdrantUrl }}"
+            - name: QDRANT_COLLECTION
+              value: "{{ .Values.config.qdrantCollection }}"
+            - name: PROMETHEUS_URL
+              value: "{{ .Values.config.prometheusUrl }}"
+            - name: LOKI_URL
+              value: "{{ .Values.config.lokiUrl }}"
+            - name: HIL_PRIMARY_TIMEOUT_SECONDS
+              value: "{{ .Values.config.hilPrimaryTimeoutSeconds }}"
+            - name: HIL_SECONDARY_TIMEOUT_SECONDS
+              value: "{{ .Values.config.hilSecondaryTimeoutSeconds }}"
+            - name: HIL_COMMANDER_TIMEOUT_SECONDS
+              value: "{{ .Values.config.hilCommanderTimeoutSeconds }}"
+            - name: POSTGRES_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: postgres_dsn
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: openrouter_api_key
+            - name: MICROSOFT_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: microsoft_app_id
+            - name: MICROSOFT_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: microsoft_app_password
+            - name: MICROSOFT_APP_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: microsoft_app_tenant_id
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: knowledge-base
+              mountPath: /app/knowledge_base
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: knowledge-base
+          configMap:
+            name: {{ .Release.Name }}-kb

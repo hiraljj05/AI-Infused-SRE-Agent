@@ -1,0 +1,4 @@
+.azure-bot-creds
+infra/teams/README.md
+.env
+*.env

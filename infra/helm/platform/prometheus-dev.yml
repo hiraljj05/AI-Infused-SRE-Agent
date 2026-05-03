@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: agent
+    static_configs:
+      - targets: [agent:8000]
+  - job_name: demo-apps
+    static_configs:
+      - targets:
+          - portfolio-web:8080
+          - food-orders:8080

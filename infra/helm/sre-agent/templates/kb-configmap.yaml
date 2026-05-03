@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-kb
+data:
+  placeholder.md: |
+    Knowledge base content is loaded at runtime via the seeder job; the agent reads
+    service catalog YAMLs from this ConfigMap for deterministic catalog lookups.
+    Replace with your real KB via a CI bake step that mounts /knowledge_base here.

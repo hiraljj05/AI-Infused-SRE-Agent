@@ -1,0 +1,32 @@
+server:
+  http_listen_port: 9080
+  log_level: warn
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Strip the leading slash from the container name (e.g. /sre-chatbot-agent-1 → sre-chatbot-agent-1)
+      - source_labels: [__meta_docker_container_name]
+        regex: "/(.*)"
+        target_label: container
+
+      # The compose service name (sre-chatbot-agent-1 → agent)
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        target_label: app
+
+      # The compose service also serves as `service_name` so Loki LogCLI defaults work
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        target_label: service_name
+
+      # Keep the image for filtering
+      - source_labels: [__meta_docker_container_log_stream]
+        target_label: stream

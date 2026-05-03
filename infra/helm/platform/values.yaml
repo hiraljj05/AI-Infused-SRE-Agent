@@ -1,0 +1,10 @@
+postgres:
+  image: postgres:16-alpine
+  storage: 5Gi
+  credentials:
+    user: sre
+    password: sre
+    database: sre_agent
+qdrant:
+  image: qdrant/qdrant:v1.12.1
+  storage: 5Gi

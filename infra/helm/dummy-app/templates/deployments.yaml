@@ -1,0 +1,69 @@
+{{- range $svc, $cfg := .Values.services }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $svc }}
+  labels:
+    app: {{ $svc }}
+spec:
+  replicas: {{ $cfg.replicas }}
+  selector:
+    matchLabels: { app: {{ $svc }} }
+  template:
+    metadata:
+      labels: { app: {{ $svc }} }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ $cfg.port }}"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: {{ $svc }}
+          image: "{{ $.Values.imageRegistry }}/dummy-{{ $svc }}:{{ $.Values.imageTag }}"
+          ports:
+            - name: http
+              containerPort: {{ $cfg.port }}
+          env:
+            {{- toYaml $cfg.env | nindent 12 }}
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svc }}
+spec:
+  selector: { app: {{ $svc }} }
+  ports:
+    - port: {{ $cfg.port }}
+      targetPort: http
+      name: http
+---
+{{- end }}
+{{- if .Values.loadGenerator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-generator
+spec:
+  replicas: {{ .Values.loadGenerator.replicas }}
+  selector:
+    matchLabels: { app: load-generator }
+  template:
+    metadata:
+      labels: { app: load-generator }
+    spec:
+      containers:
+        - name: load-generator
+          image: "{{ .Values.imageRegistry }}/dummy-load-generator:{{ .Values.imageTag }}"
+          env:
+            {{- toYaml .Values.loadGenerator.env | nindent 12 }}
+          resources:
+            {{- toYaml .Values.loadGenerator.resources | nindent 12 }}
+{{- end }}

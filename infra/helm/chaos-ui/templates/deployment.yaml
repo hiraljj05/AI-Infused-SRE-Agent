@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.serviceAccount.name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: chaos-ui-chaos-admin
+  namespace: {{ .Values.targetNamespace }}
+rules:
+  - apiGroups: ["chaos-mesh.org"]
+    resources: ["*"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: chaos-ui-chaos-admin
+  namespace: {{ .Values.targetNamespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: chaos-ui-chaos-admin
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chaos-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: chaos-ui }
+  template:
+    metadata:
+      labels: { app: chaos-ui }
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: chaos-ui
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 8501
+          env:
+            - name: AGENT_API_URL
+              value: {{ .Values.agentApiUrl }}
+            - name: TARGET_NAMESPACE
+              value: {{ .Values.targetNamespace }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chaos-ui
+spec:
+  selector: { app: chaos-ui }
+  ports:
+    - port: 80
+      targetPort: 8501

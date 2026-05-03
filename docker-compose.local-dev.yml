@@ -1,0 +1,183 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sre
+      POSTGRES_PASSWORD: sre
+      POSTGRES_DB: sre_agent
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sre"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.1
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/helm/platform/prometheus-dev.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: light
+      GF_LOG_LEVEL: warn
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+      GF_SECURITY_COOKIE_SAMESITE: none
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - loki
+
+  loki:
+    image: grafana/loki:3.2.0
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+
+  promtail:
+    image: grafana/promtail:3.2.0
+    command: -config.file=/etc/promtail/config.yaml
+    volumes:
+      - ./infra/promtail/config.yaml:/etc/promtail/config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - loki
+
+  agent:
+    build:
+      context: ./services/agent
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_DSN: ${POSTGRES_DSN:-postgresql+asyncpg://sre:sre@postgres:5432/sre_agent}
+      VECTOR_BACKEND: ${VECTOR_BACKEND:-pgvector}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      PROMETHEUS_URL: http://prometheus:9090
+      LOKI_URL: http://loki:3100
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-3.5-sonnet}
+      GRAFANA_URL: http://grafana:3000
+      GRAFANA_USERNAME: admin
+      GRAFANA_PASSWORD: admin
+      APP_ENV: dev
+      LOG_LEVEL: DEBUG
+      KNOWLEDGE_BASE_ROOT: /app/knowledge_base
+      AAD_TENANT_ID: ${AAD_TENANT_ID:-}
+      AAD_CLIENT_ID: ${AAD_CLIENT_ID:-}
+      AAD_CLIENT_SECRET: ${AAD_CLIENT_SECRET:-}
+      AAD_REDIRECT_URI: ${AAD_REDIRECT_URI:-http://localhost:8000/auth/callback}
+      AAD_POST_LOGIN_REDIRECT: ${AAD_POST_LOGIN_REDIRECT:-http://localhost:3030/}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-dev-secret-change-me}
+      AUTH_ADMIN_EMAILS: ${AUTH_ADMIN_EMAILS:-}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-false}
+      MICROSOFT_APP_ID: ${MICROSOFT_APP_ID:-}
+      MICROSOFT_APP_PASSWORD: ${MICROSOFT_APP_PASSWORD:-}
+      MICROSOFT_APP_TENANT_ID: ${MICROSOFT_APP_TENANT_ID:-}
+      MICROSOFT_APP_TYPE: ${MICROSOFT_APP_TYPE:-SingleTenant}
+      HIL_PRIMARY_TIMEOUT_SECONDS: ${HIL_PRIMARY_TIMEOUT_SECONDS:-300}
+      HIL_SECONDARY_TIMEOUT_SECONDS: ${HIL_SECONDARY_TIMEOUT_SECONDS:-180}
+      HIL_COMMANDER_TIMEOUT_SECONDS: ${HIL_COMMANDER_TIMEOUT_SECONDS:-120}
+      DEMO_FORCE_HIL: ${DEMO_FORCE_HIL:-false}
+      INCIDENT_COMMANDER: ${INCIDENT_COMMANDER:-incident-commanders}
+      DEFAULT_ON_CALL_PRIMARY: ${DEFAULT_ON_CALL_PRIMARY:-}
+      DEFAULT_ON_CALL_SECONDARY: ${DEFAULT_ON_CALL_SECONDARY:-}
+      JIRA_BASE_URL: ${JIRA_BASE_URL:-}
+      JIRA_EMAIL: ${JIRA_EMAIL:-}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
+      KUBECONFIG: /app/kubeconfig.yaml
+      K8S_IN_CLUSTER: "false"
+      TARGET_NAMESPACE: ${TARGET_NAMESPACE:-demo}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/agent/src:/app/src:ro
+      - ./knowledge_base:/app/knowledge_base:ro
+      - ./infra/k8s/agent-kubeconfig.yaml:/app/kubeconfig.yaml:ro
+      - agent_data:/app/data
+    command: uvicorn sre_agent.interface.rest.app:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/src
+    user: "0:0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+  dashboard:
+    build:
+      context: ./services/dashboard
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      AGENT_API_URL: http://agent:8000
+    ports:
+      - "3030:3000"
+    depends_on:
+      - agent
+
+  chaos-ui:
+    build:
+      context: ./services/chaos-ui
+      dockerfile: Dockerfile
+    environment:
+      AGENT_API_URL: http://agent:8000
+    ports:
+      - "8501:8501"
+
+  portfolio-web:
+    build:
+      context: ./services/demo-app
+      dockerfile: Dockerfile
+    environment:
+      SERVICE_NAME: portfolio-web
+      APP_KIND: portfolio
+      SRE_AGENT_URL: http://agent:8000
+      PORT: "8080"
+    ports:
+      - "8081:8080"
+    depends_on:
+      - agent
+
+  food-orders:
+    build:
+      context: ./services/demo-app
+      dockerfile: Dockerfile
+    environment:
+      SERVICE_NAME: food-orders
+      APP_KIND: food
+      SRE_AGENT_URL: http://agent:8000
+      PORT: "8080"
+    ports:
+      - "8082:8080"
+    depends_on:
+      - agent
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  grafana_data:
+  loki_data:
+  agent_data:

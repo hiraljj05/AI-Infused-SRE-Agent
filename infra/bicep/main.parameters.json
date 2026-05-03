@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "value": "centralindia" },
+    "aksClusterName": { "value": "sre-demo-aks" },
+    "linuxAdminUsername": { "value": "sreadmin" },
+    "linuxAdminSshKey": { "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH3CgOQN9Uh51aGds/nXxc7RadLKyThBGRV2Z9bPouJJ sre-agent-demo@workstation" },
+    "nodeCount": { "value": 1 },
+    "nodeVmSize": { "value": "Standard_B2s_v2" }
+  }
+}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: dashboard
+description: Next.js dashboard for the SRE Agent
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

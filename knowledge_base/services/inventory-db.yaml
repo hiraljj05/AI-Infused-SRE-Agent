@@ -1,0 +1,14 @@
+name: inventory-db
+tier: tier-0
+namespace: demo-store
+owner_primary: demo@.onmicrosoft.com
+owner_secondary: PriyanshTyagi@sreagentusecase.onmicrosoft.com
+incident_commander_group: PriyanshTyagi@sreagentusecase.onmicrosoft.com
+dependencies: []
+slos:
+  - metric: http_requests_total:error_rate
+    target_percent: 99.95
+    window_days: 30
+runbook_ids:
+  - RB-DB-CONNECTIONS
+  - RB-POD-CRASHLOOP

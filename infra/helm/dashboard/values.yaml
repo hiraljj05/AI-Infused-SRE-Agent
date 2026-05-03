@@ -1,0 +1,8 @@
+image:
+  repository: ghcr.io/sre-agent/dashboard
+  tag: latest
+agentApiUrl: http://sre-agent:8000
+ingress:
+  enabled: true
+  host: dashboard.example.com
+  className: nginx

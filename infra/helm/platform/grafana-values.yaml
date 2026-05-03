@@ -1,0 +1,60 @@
+replicas: 1
+adminUser: admin
+adminPassword: admin
+service:
+  type: ClusterIP
+  port: 3000
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClassName: default
+  accessModes:
+    - ReadWriteOnce
+resources:
+  requests: { cpu: 50m, memory: 200Mi }
+  limits: { cpu: 300m, memory: 400Mi }
+grafana.ini:
+  auth.anonymous:
+    enabled: true
+    org_role: Viewer
+  auth:
+    disable_login_form: true
+  security:
+    allow_embedding: true
+    cookie_samesite: none
+  users:
+    default_theme: light
+  log:
+    level: warn
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.platform.svc.cluster.local
+        isDefault: true
+        jsonData:
+          httpMethod: GET
+          timeInterval: 15s
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki.platform.svc.cluster.local:3100
+        jsonData:
+          maxLines: 1000
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: sre-agent
+        orgId: 1
+        folder: SRE Agent
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/sre-agent
+dashboardsConfigMaps:
+  sre-agent: grafana-dashboards

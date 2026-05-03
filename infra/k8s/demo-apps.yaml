@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: food-orders
+  namespace: demo
+  labels:
+    app: food-orders
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: food-orders
+  template:
+    metadata:
+      labels:
+        app: food-orders
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: app
+          image: sreagentacr13668.azurecr.io/food-orders:v1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SERVICE_NAME
+              value: food-orders
+            - name: APP_KIND
+              value: food
+            - name: SRE_AGENT_URL
+              value: http://agent.sre-agent.svc.cluster.local:8000
+            - name: PORT
+              value: "8080"
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 25m, memory: 50Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: food-orders
+  namespace: demo
+spec:
+  selector: { app: food-orders }
+  ports:
+    - port: 8080
+      targetPort: http
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portfolio-web
+  namespace: demo
+  labels:
+    app: portfolio-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: portfolio-web
+  template:
+    metadata:
+      labels:
+        app: portfolio-web
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: app
+          image: sreagentacr13668.azurecr.io/portfolio-web:v1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SERVICE_NAME
+              value: portfolio-web
+            - name: APP_KIND
+              value: portfolio
+            - name: SRE_AGENT_URL
+              value: http://agent.sre-agent.svc.cluster.local:8000
+            - name: PORT
+              value: "8080"
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 25m, memory: 50Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portfolio-web
+  namespace: demo
+spec:
+  selector: { app: portfolio-web }
+  ports:
+    - port: 8080
+      targetPort: http
+      name: http

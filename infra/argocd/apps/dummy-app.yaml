@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dummy-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/REPLACE_ORG/REPLACE_REPO.git
+    targetRevision: main
+    path: infra/helm/dummy-app
+    helm:
+      releaseName: demo
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo-store
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: ["CreateNamespace=true"]

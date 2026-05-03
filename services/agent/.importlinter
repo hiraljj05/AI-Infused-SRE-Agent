@@ -1,0 +1,36 @@
+[importlinter]
+root_package = sre_agent
+include_external_packages = True
+
+[importlinter:contract:layered-architecture]
+name = Hexagonal layers must not leak
+type = layers
+layers =
+    sre_agent.interface
+    sre_agent.application
+    sre_agent.domain
+containers =
+    sre_agent
+
+[importlinter:contract:domain-purity]
+name = Domain must not import infrastructure or interface
+type = forbidden
+source_modules =
+    sre_agent.domain
+forbidden_modules =
+    sre_agent.infrastructure
+    sre_agent.interface
+
+[importlinter:contract:application-purity]
+name = Application layer must not import interface or concrete infrastructure
+type = forbidden
+source_modules =
+    sre_agent.application
+forbidden_modules =
+    sre_agent.interface
+    sre_agent.infrastructure.llm
+    sre_agent.infrastructure.k8s
+    sre_agent.infrastructure.knowledge
+    sre_agent.infrastructure.metrics
+    sre_agent.infrastructure.messaging
+    sre_agent.infrastructure.notification
