@@ -1,10 +1,6 @@
 #  AI Infused SDLC SRE Agent
 
-![Status](https://img.shields.io/badge/status-active-blue)
-![Version](https://img.shields.io/badge/version-1.0-green)
-![License](https://img.shields.io/badge/license-MIT-orange)
 
----
 
 ##  Overview
 
@@ -33,7 +29,7 @@ It provides a **complete incident lifecycle automation**, including monitoring, 
 
 ##  System Architecture
 
-```
+
 <img width="827" height="504" alt="image" src="https://github.com/user-attachments/assets/eabbb5fe-6602-480f-9aa3-a85d6ce4b049" />
 <img width="1311" height="751" alt="image" src="https://github.com/user-attachments/assets/cca41cc1-16fa-4a04-9ab2-34ffb7b0cab1" />
 <img width="1561" height="539" alt="image" src="https://github.com/user-attachments/assets/22922124-e246-40ba-886f-fef19a3475e5" />
