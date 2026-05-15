@@ -4,10 +4,38 @@
 
 ##  Overview
 
-The **AI Infused SDLC SRE Agent** is an intelligent automation system designed to monitor applications, detect anomalies, manage incidents, and resolve issues with minimal human intervention.
+Modern production systems run 24/7, and when incidents happen — especially during late nights or peak traffic hours — engineers are required to manually investigate logs, metrics, dashboards, and infrastructure health to identify the issue and resolve it.
 
-It provides a **complete incident lifecycle automation**, including monitoring, alerting, incident management, automated remediation, change control, and continuous learning.
+This process is often repetitive, time-consuming, and stressful.
+For recurring incidents, engineers may end up performing the same troubleshooting steps multiple times, including:
 
+Checking Grafana dashboards
+Analyzing Prometheus metrics
+Reading logs from Loki/ELK
+Identifying root causes
+Executing fixes manually
+Creating incident reports and postmortems
+
+The AI Infused SDLC SRE Agent automates this operational workflow using AI-driven monitoring, incident analysis, remediation, and learning systems.
+
+The agent continuously monitors infrastructure and applications in real time. When an issue is detected, it:
+
+Collects metrics and logs automatically
+Performs intelligent Root Cause Analysis (RCA)
+Searches memory for similar historical incidents
+Uses predefined operational playbooks (rulebooks) for known issues
+Executes automated remediation when confidence is high
+Escalates risky incidents to engineers when needed
+Generates incident timelines and postmortem data automatically
+
+This significantly reduces:
+
+Mean Time To Recovery (MTTR)
+Manual operational effort
+Repetitive debugging work
+Downtime during critical incidents
+
+The system acts as an intelligent SRE assistant that improves reliability, accelerates incident response, and continuously learns from previous failures.
 ---
 
 ##  Key Capabilities
